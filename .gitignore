@@ -1,0 +1,35 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/bin/
+/build/
+
+# Binary hasil "go build" (tanpa ekstensi, dibangun di WSL/Linux)
+# example: go build -o todo-api .  ->  ./todo-api
+todo-api
+task-api
+
+# SQLite DB (jangan di-commit)
+*.db
+*.db-shm
+*.db-wal
+07-task-api/tasks.db
+
+# Node.js (Frontend)
+node_modules/
+dist/
+.vite/
+
+# Env & config sensitif
+.env
+.env.*
+!.env.example
+
+# Sistem
+.DS_Store
+Thumbs.db

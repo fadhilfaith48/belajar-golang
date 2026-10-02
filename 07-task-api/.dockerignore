@@ -1,0 +1,4 @@
+# Jangan salin artefak build & data ke image
+task-api
+tasks.db
+*.log
