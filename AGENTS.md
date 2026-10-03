@@ -19,6 +19,19 @@ Pemakai: pemula total (Windows 11 + WSL Ubuntu).
 - [x] 08-task-frontend — Frontend React + Vite (halaman Manajemen Tugas)
       - Terhubung ke backend via proxy Vite (/api -> localhost:8080)
       - Teruji end-to-end: React -> /api -> Go API -> SQLite
+- [x] 09-fitur-api — Validasi prioritas, pencarian judul, pagination
+      - model: ValidPrioritas, NormalisasiStatus/Prioritas, Validasi() (dipakai Create+Update)
+      - BUG FIX: PUT /tasks/{id} sebelumnya TIDAK memvalidasi apa pun
+      - GET /tasks?search= (case-insensitive, bisa digabung filter)
+      - GET /tasks?page=&limit= (default 1/20, max limit 100, clamp)
+      - PENTING: bentuk JSON GET /tasks BERUBAH -> {"data":[], "total", "page", "limit", "total_pages"}
+
+## Git & GitHub
+
+- Repo: https://github.com/fadhilfaith48/belajar-golang (PRIVATE, monorepo 01-08)
+- branch `main` sudah tracking `origin/main`
+- 39 file ter-commit. Binary hasil `go build` (tanpa ekstensi) sudah masuk .gitignore
+- Root Directory saat deploy: Render -> `07-task-api`, Vercel -> `08-task-frontend`
 
 ## Cara menjalankan
 
@@ -51,10 +64,17 @@ docker run -d --name task-api -p 8080:8080 task-api
 
 ## Langkah berikutnya (belum dikerjakan)
 
-- [ ] Deploy API ke internet (VPS/PaaS)
-- [ ] Upgrade DB ke PostgreSQL
+- [ ] Deploy API ke internet (Render) + Postgres gratis (Neon)
+- [ ] Upgrade DB ke PostgreSQL (perlu refactor: pagination di handler -> SQL LIMIT/OFFSET)
 - [ ] Login/auth (JWT)
-- [ ] Fitur baru di API: pencarian judul, validasi prioritas
+- [ ] Sorting (?sort_by=&order=), validasi format deadline
+
+## Catatan pagination
+
+Filter + search + pagination sekarang dikerjakan di handler (memori Go) dengan
+memotong slice. Interface `TaskStore` masih `List() []model.Task`.
+Saat pindah ke PostgreSQL, ini perlu diubah ke `List(limit, offset) + Count()`
+supaya query memakai `LIMIT`/`OFFSET` di SQL dan tidak menarik seluruh tabel.
 
 ## Gaya kerja
 

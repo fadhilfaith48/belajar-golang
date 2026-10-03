@@ -5,18 +5,31 @@ function App() {
   const [tasks, setTasks] = useState([])
   const [stats, setStats] = useState({})
   const [filter, setFilter] = useState('')
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [info, setInfo] = useState({ total: 0, total_pages: 1 })
   const [loading, setLoading] = useState(true)
   const [pesan, setPesan] = useState('')
   const [form, setForm] = useState({ judul: '', kategori: '', prioritas: 'sedang' })
+
+  const limit = 10
 
   // Ambil daftar task + statistik dari API
   const ambilData = async () => {
     setLoading(true)
     try {
-      const q = filter ? `?status=${filter}` : ''
-      const res = await fetch(`/api/tasks${q}`)
-      const data = await res.json()
-      setTasks(data)
+      // URLSearchParams otomatis meng-encode nilai,
+      // jadi spasi otomatis jadi %20 dan tidak merusak URL.
+      const params = new URLSearchParams()
+      if (filter) params.set('status', filter)
+      if (search.trim()) params.set('search', search.trim())
+      params.set('page', page)
+      params.set('limit', limit)
+
+      const res = await fetch(`/api/tasks?${params}`)
+      const hasil = await res.json()
+      setTasks(hasil.data)
+      setInfo({ total: hasil.total, total_pages: hasil.total_pages })
 
       const sres = await fetch('/api/tasks/stats')
       setStats(await sres.json())
@@ -27,10 +40,24 @@ function App() {
     }
   }
 
-  // Jalankan ulang setiap filter berubah
+  // Debounce: tunggu 300ms setelah berhenti mengetik baru request.
+  // Tanpa ini, tiap ketikan huruf akan memicu satu request ke server.
   useEffect(() => {
-    ambilData()
-  }, [filter])
+    const timer = setTimeout(ambilData, 300)
+    return () => clearTimeout(timer)
+  }, [filter, search, page])
+
+  // Ganti filter/search selalu kembali ke halaman 1,
+  // supaya tidak terjebak di halaman 5 padahal hasilnya cuma 1 halaman.
+  const gantiFilter = (kode) => {
+    setFilter(kode)
+    setPage(1)
+  }
+
+  const gantiSearch = (nilai) => {
+    setSearch(nilai)
+    setPage(1)
+  }
 
   const tambahTask = async (e) => {
     e.preventDefault()
@@ -116,11 +143,20 @@ function App() {
           <button
             key={f.kode}
             className={filter === f.kode ? 'aktif' : ''}
-            onClick={() => setFilter(f.kode)}
+            onClick={() => gantiFilter(f.kode)}
           >
             {f.label}
           </button>
         ))}
+      </div>
+
+      <div className="cari">
+        <input
+          placeholder="Cari judul tugas..."
+          value={search}
+          onChange={(e) => gantiSearch(e.target.value)}
+        />
+        <span>{info.total} tugas ditemukan</span>
       </div>
 
       {loading ? (
@@ -167,6 +203,24 @@ function App() {
           </tbody>
         </table>
       )}
+
+      <div className="pagination">
+        <button
+          disabled={page <= 1}
+          onClick={() => setPage((p) => p - 1)}
+        >
+          ‹ Sebelumnya
+        </button>
+        <span>
+          Halaman {page} dari {info.total_pages}
+        </span>
+        <button
+          disabled={page >= info.total_pages}
+          onClick={() => setPage((p) => p + 1)}
+        >
+          Berikutnya ›
+        </button>
+      </div>
     </div>
   )
 }
