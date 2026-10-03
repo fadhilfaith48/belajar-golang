@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -48,11 +49,70 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 
-// GET /tasks — list dengan filter opsional ?status=&kategori=
+// Batas pagination
+const (
+	defaultLimit = 20
+	maxLimit     = 100
+)
+
+// TaskListResponse: respons GET /tasks.
+// Data dibungkus dalam objek (bukan array mentah) supaya bisa ikut
+// membawa metadata: jumlah total, halaman sekarang, dll.
+type TaskListResponse struct {
+	Data       []model.Task `json:"data"`
+	Total      int          `json:"total"`
+	Page       int          `json:"page"`
+	Limit      int          `json:"limit"`
+	TotalPages int          `json:"total_pages"`
+}
+
+// parsePagination: membaca ?page= dan ?limit=.
+//
+// Parameter kosong memakai default (page=1, limit=20). Parameter yang diisi
+// tapi bukan angka atau < 1 DITOLAK dengan 400, bukan diabaikan diam-diam —
+// supaya salah ketik langsung ketahuan daripada mengembalikan data yang
+// tidak sesuai harapan. limit diklem ke maxLimit supaya klien tidak bisa
+// meminta seluruh tabel sekaligus.
+func parsePagination(r *http.Request) (page, limit int, err error) {
+	page, limit = 1, defaultLimit
+
+	if v := r.URL.Query().Get("page"); v != "" {
+		n, e := strconv.Atoi(v)
+		if e != nil || n < 1 {
+			return 0, 0, errors.New("page harus angka >= 1")
+		}
+		page = n
+	}
+
+	if v := r.URL.Query().Get("limit"); v != "" {
+		n, e := strconv.Atoi(v)
+		if e != nil || n < 1 {
+			return 0, 0, errors.New("limit harus angka >= 1")
+		}
+		if n > maxLimit {
+			n = maxLimit
+		}
+		limit = n
+	}
+
+	return page, limit, nil
+}
+
+// GET /tasks — list dengan filter opsional + pagination
+// ?status=&kategori=&search=&page=&limit=
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	h.tambahHitungan()
+
+	page, limit, err := parsePagination(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	status := r.URL.Query().Get("status")
 	kategori := r.URL.Query().Get("kategori")
+	// Lowercase sekali di luar loop, bukan per item (lebih hemat)
+	search := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("search")))
 
 	hasil := make([]model.Task, 0)
 	for _, t := range h.store.List() {
@@ -62,9 +122,38 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		if kategori != "" && t.Kategori != kategori {
 			continue
 		}
+		if search != "" && !strings.Contains(strings.ToLower(t.Judul), search) {
+			continue
+		}
 		hasil = append(hasil, t)
 	}
-	writeJSON(w, http.StatusOK, hasil)
+
+	// Pagination: total dihitung SEBELUM dipotong, jadi "total" selalu
+	// menunjukkan berapa banyak hasil filter (bukan hanya halaman ini).
+	total := len(hasil)
+	totalPages := (total + limit - 1) / limit
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	// Slicing di luar batas akan panic, jadi dijepit dulu. Halaman yang
+	// jauh melewati jumlah data menghasilkan daftar kosong, bukan error.
+	start := (page - 1) * limit
+	if start > total {
+		start = total
+	}
+	end := start + limit
+	if end > total {
+		end = total
+	}
+
+	writeJSON(w, http.StatusOK, TaskListResponse{
+		Data:       hasil[start:end],
+		Total:      total,
+		Page:       page,
+		Limit:      limit,
+		TotalPages: totalPages,
+	})
 }
 
 // POST /tasks — tambah tugas baru
@@ -75,12 +164,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "format JSON tidak valid", http.StatusBadRequest)
 		return
 	}
-	if strings.TrimSpace(t.Judul) == "" {
-		http.Error(w, "judul tidak boleh kosong", http.StatusBadRequest)
-		return
-	}
-	if t.Status != "" && !model.ValidStatus(t.Status) {
-		http.Error(w, "status tidak valid", http.StatusBadRequest)
+	if err := model.Validasi(&t); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -122,6 +207,10 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t.ID = id
+	if err := model.Validasi(&t); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	updated, err := h.store.Update(t)
 	if err != nil {

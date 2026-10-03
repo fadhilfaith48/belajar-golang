@@ -1,5 +1,10 @@
 package model
 
+import (
+	"errors"
+	"strings"
+)
+
 // Task: representasi data tugas dalam JSON
 type Task struct {
 	ID        int    `json:"id"`
@@ -17,6 +22,13 @@ const (
 	StatusDone  = "done"
 )
 
+// Prioritas yang diperbolehkan
+const (
+	PrioritasTinggi = "tinggi"
+	PrioritasSedang = "sedang"
+	PrioritasRendah = "rendah"
+)
+
 // MarkDone: method dengan POINTER receiver.
 // Mengubah data yang sebenarnya, bukan salinan.
 func (t *Task) MarkDone() {
@@ -32,4 +44,45 @@ func (t Task) IsDone() bool {
 // ValidStatus: cek apakah status diperbolehkan
 func ValidStatus(s string) bool {
 	return s == StatusTodo || s == StatusDoing || s == StatusDone
+}
+
+// ValidPrioritas: cek apakah prioritas diperbolehkan
+func ValidPrioritas(p string) bool {
+	return p == PrioritasTinggi || p == PrioritasSedang || p == PrioritasRendah
+}
+
+// NormalisasiStatus: isi default "todo" bila kosong atau hanya spasi.
+func NormalisasiStatus(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return StatusTodo
+	}
+	return s
+}
+
+// NormalisasiPrioritas: isi default "sedang" bila kosong atau hanya spasi.
+func NormalisasiPrioritas(p string) string {
+	p = strings.TrimSpace(p)
+	if p == "" {
+		return PrioritasSedang
+	}
+	return p
+}
+
+// Validasi: sekaligus normalisasi lalu cek isi. Dipakai Create dan Update
+// agar keduanya berlaku IDENTIK — sebelumnya hanya Create yang memvalidasi.
+func Validasi(t *Task) error {
+	t.Status = NormalisasiStatus(t.Status)
+	t.Prioritas = NormalisasiPrioritas(t.Prioritas)
+
+	if strings.TrimSpace(t.Judul) == "" {
+		return errors.New("judul tidak boleh kosong")
+	}
+	if !ValidStatus(t.Status) {
+		return errors.New("status tidak valid")
+	}
+	if !ValidPrioritas(t.Prioritas) {
+		return errors.New("prioritas tidak valid")
+	}
+	return nil
 }
