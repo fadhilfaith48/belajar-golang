@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"task-api/handler"
 	"task-api/middleware"
@@ -19,11 +24,27 @@ func main() {
 		dbPath = "tasks.db"
 	}
 
-	// Wiring: buat store, bungkus dengan handler
-	st, err := store.NewSQLite(dbPath)
+	// Wiring: buat store, bungkus dengan handler.
+	// Disimpan sebagai variabel bertipe interface TaskStore (bukan *SQLiteStore)
+	// supaya di Phase 3 tinggal tukar ke Postgres tanpa mengubah kode lain.
+	// Type assertion HANYA bisa dilakukan pada interface, bukan tipe konkret.
+	db, err := store.NewSQLite(dbPath)
 	if err != nil {
 		log.Fatal(err)
 	}
+	var st store.TaskStore = db
+
+	// Tutup database saat program berhenti, supaya file SQLite tidak
+	// meninggalkan data belum tersimpan. Close() TIDAK ada di interface
+	// TaskStore, jadi dicek dulu apakah store-nya mendukung (type assertion).
+	defer func() {
+		if c, ok := st.(interface{ Close() error }); ok {
+			if err := c.Close(); err != nil {
+				log.Printf("gagal menutup database: %v", err)
+			}
+		}
+	}()
+
 	h := handler.New(st)
 
 	// Seed: isi data contoh hanya jika database masih kosong
@@ -44,11 +65,63 @@ func main() {
 	mux.HandleFunc("DELETE /tasks/{id}", h.Delete)
 	mux.HandleFunc("GET /tasks/stats", h.Stats)
 
-	// Middleware dibungkus dari luar: Recovery di paling luar,
-	// lalu Logging, lalu mux di tengah.
-	// Urutan berpengaruh: request masuk Recovery → Logging → handler.
-	app := middleware.Recovery(middleware.Logging(mux))
+	// Health check: dipakai platform cloud (Render) untuk mengecek
+	// apakah service masih hidup. Harus jawaban cepat dan tidak
+	// membaca database.
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	})
 
-	log.Println("Server jalan di http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", app))
+	// Middleware dibungkus dari luar: Recovery di paling luar supaya
+	// juga menangkap panic dari middleware di dalamnya, lalu CORS
+	// (header + preflight), lalu Logging, lalu mux.
+	// Urutan berpengaruh: request masuk Recovery → CORS → Logging → handler.
+	app := middleware.Recovery(middleware.CORS(middleware.Logging(mux)))
+
+	// Port dari environment variable. Platform cloud (Render, Heroku)
+	// selalu menyediakan PORT sendiri, jadi TIDAK boleh di-hardcode.
+	// Kalau kosong (lokal), pakai default 8080.
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	// http.Server dengan timeout: tanpa ini, satu koneksi yang lambat
+	// bisa menahan resource server selamanya (serangan slowloris).
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: app,
+		// Batas hanya untuk membaca header request.
+		ReadHeaderTimeout: 5 * time.Second,
+		// Batas total untuk membaca seluruh request.
+		ReadTimeout: 10 * time.Second,
+		// Batas total untuk menulis response.
+		WriteTimeout: 15 * time.Second,
+		// Batas koneksi idle (keep-alive) sebelum ditutup.
+		IdleTimeout: 60 * time.Second,
+	}
+
+	// Graceful shutdown: platform cloud mengirim SIGTERM sebelum mematikan
+	// container. Tangani sinyal itu: berhenti menerima request baru, lalu
+	// tunggu request yang sedang berjalan sampai selesai (maks 10 detik).
+	go func() {
+		stop := make(chan os.Signal, 1)
+		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+		<-stop
+
+		log.Println("shutdown diminta, menunggu request yang sedang berjalan...")
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Printf("shutdown dipaksa: %v", err)
+			return
+		}
+		log.Println("server berhenti dengan rapi")
+	}()
+
+	log.Printf("Server jalan di http://localhost:%s", port)
+	log.Fatal(srv.ListenAndServe())
 }

@@ -33,6 +33,28 @@ func Logging(next http.Handler) http.Handler {
 	})
 }
 
+// CORS: mengizinkan browser dari origin lain (mis. Vercel) memanggil API ini.
+//
+// Tanpa header ini, browser memblokir request lintas domain dari frontend.
+// Untuk project belajar, "*" sudah cukup. Di produksi sebaiknya whitelist
+// origin spesifik supaya hanya domain sendiri yang boleh mengakses.
+func CORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		// Preflight: untuk POST/PUT/DELETE lintas domain, browser mengirim
+		// OPTIONS dulu untuk menanyakan "boleh tidak?". Jawab langsung
+		// tanpa memanggil handler.
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // Recovery: menangkap panic dari handler mana pun.
 // Tanpa ini, panic membuat seluruh server crash (program berhenti).
 // Dengan ini, server tetap hidup dan request dibalas 500.
