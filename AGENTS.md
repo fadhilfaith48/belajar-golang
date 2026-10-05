@@ -3,7 +3,9 @@
 Proyek belajar Go dari nol sampai aplikasi full-stack kecil.
 Pemakai: pemula total (Windows 11 + WSL Ubuntu).
 
-## Progress saat ini (~80%)
+## Progress saat ini (~85%)
+
+> Rencana fitur lengkap ada di [RENCANA.md](RENCANA.md) (4 fase, dengan checklist).
 
 - [x] 01-variabel — variabel, tipe data
 - [x] 02-fungsi — fungsi, parameter, return, multiple return
@@ -25,12 +27,20 @@ Pemakai: pemula total (Windows 11 + WSL Ubuntu).
       - GET /tasks?search= (case-insensitive, bisa digabung filter)
       - GET /tasks?page=&limit= (default 1/20, max limit 100, clamp)
       - PENTING: bentuk JSON GET /tasks BERUBAH -> {"data":[], "total", "page", "limit", "total_pages"}
+- [x] 10-fase-1-wajah — CORS, PORT dari env, /health, http.Server + timeout, graceful shutdown
+      - middleware.CORS() di middleware/middleware.go, tangani preflight OPTIONS (204)
+      - main.go: PORT dari env (default 8080) — WAJAB untuk Render
+      - main.go: GET /health -> {"status":"ok"} untuk health check Render
+      - main.go: http.Server + ReadHeader/Read/Write/Idle timeout (anti slowloris)
+      - main.go: graceful shutdown SIGINT/SIGTERM + srv.Shutdown() + tutup store via type assertion
+      - PENTING: `var st store.TaskStore = db` — type assertion hanya bisa pada interface
 
 ## Git & GitHub
 
 - Repo: https://github.com/fadhilfaith48/belajar-golang (PRIVATE, monorepo 01-08)
 - branch `main` sudah tracking `origin/main`
-- 39 file ter-commit. Binary hasil `go build` (tanpa ekstensi) sudah masuk .gitignore
+- 40 file ter-commit. Binary hasil `go build` (tanpa ekstensi) sudah masuk .gitignore
+- Checkpoint bersih: `261a123` (email `fadhilfaith2@gmail.com`, tanpa trailer Claude)
 - Root Directory saat deploy: Render -> `07-task-api`, Vercel -> `08-task-frontend`
 
 ## Cara menjalankan
