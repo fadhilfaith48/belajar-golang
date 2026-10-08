@@ -25,14 +25,24 @@ func main() {
 	}
 
 	// Wiring: buat store, bungkus dengan handler.
-	// Disimpan sebagai variabel bertipe interface TaskStore (bukan *SQLiteStore)
-	// supaya di Phase 3 tinggal tukar ke Postgres tanpa mengubah kode lain.
-	// Type assertion HANYA bisa dilakukan pada interface, bukan tipe konkret.
-	db, err := store.NewSQLite(dbPath)
-	if err != nil {
-		log.Fatal(err)
+	// Mode ganda: jika DATABASE_URL diset, pakai PostgreSQL; kalau tidak, pakai SQLite (lokal).
+	var st store.TaskStore
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn != "" {
+		pg, err := store.NewPostgres(dsn)
+		if err != nil {
+			log.Fatal(err)
+		}
+		st = pg
+		log.Println("store: PostgreSQL aktif")
+	} else {
+		db, err := store.NewSQLite(dbPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		st = db
+		log.Println("store: SQLite aktif")
 	}
-	var st store.TaskStore = db
 
 	// Tutup database saat program berhenti, supaya file SQLite tidak
 	// meninggalkan data belum tersimpan. Close() TIDAK ada di interface

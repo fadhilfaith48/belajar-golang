@@ -8,7 +8,7 @@ Rencana 开发 untuk aplikasi Task Manager (`07-task-api` + `08-task-frontend`).
 |---|---|---|
 | 1 | WAJAH: CORS, PORT, /health, timeout | ✅ Selesai |
 | 2 | TAMPILAN: sorting, filter prioritas, deadline | ✅ Selesai |
-| 3 | DATABASE: migrasi PostgreSQL | ⬜ Belum |
+| 3 | DATABASE: migrasi PostgreSQL | ✅ Selesai |
 | 4 | AUTH: login JWT | ⬜ Belum |
 
 ---
@@ -44,11 +44,11 @@ Tanpa fase ini, frontend di Vercel **tidak bisa** konek ke API di Render.
 
 ## Fase 3 — DATABASE (PostgreSQL)
 
-- [ ] `go get github.com/lib/pq`
-- [ ] `store/postgresstore.go` (`SERIAL`, `RETURNING id`, placeholder `$1`)
-- [ ] Filter/sort/pagination jadi `WHERE ... ORDER BY ... LIMIT/OFFSET` + `COUNT(*)`
-- [ ] `main.go` mode ganda: ada `DATABASE_URL` → Postgres, tidak ada → SQLite
-- [ ] `postgresstore_test.go` dengan `t.Skip` bila `DATABASE_URL` kosong
+- [x] `go get github.com/lib/pq`
+- [x] `store/postgresstore.go` (`SERIAL`, `RETURNING id`, placeholder `$1`)
+- [x] Filter/sort/pagination jadi `WHERE ... ORDER BY ... LIMIT/OFFSET` + `COUNT(*)`
+- [x] `main.go` mode ganda: ada `DATABASE_URL` → Postgres, tidak ada → SQLite
+- [x] `postgresstore_test.go` dengan `t.Skip` bila `DATABASE_URL` kosong
 
 ## Fase 4 — AUTH (JWT)
 
