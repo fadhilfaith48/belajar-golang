@@ -7,7 +7,7 @@ Rencana 开发 untuk aplikasi Task Manager (`07-task-api` + `08-task-frontend`).
 | Fase | Paket | Status |
 |---|---|---|
 | 1 | WAJAH: CORS, PORT, /health, timeout | ✅ Selesai |
-| 2 | TAMPILAN: sorting, filter prioritas, deadline | ⬜ Belum |
+| 2 | TAMPILAN: sorting, filter prioritas, deadline | ✅ Selesai |
 | 3 | DATABASE: migrasi PostgreSQL | ⬜ Belum |
 | 4 | AUTH: login JWT | ⬜ Belum |
 
@@ -34,13 +34,13 @@ Tanpa fase ini, frontend di Vercel **tidak bisa** konek ke API di Render.
 ## Fase 2 — TAMPILAN
 
 - [ ] `store.ListOptions` + `ListFiltered(opts) ([]model.Task, int, error)` di `TaskStore`
-- [ ] Implementasi di `InMemoryStore` dan `SQLiteStore`
-- [ ] Whitelist `SortColumns` (anti SQL injection)
-- [ ] Sorting `?sort_by=&order=asc|desc`
-- [ ] Filter prioritas `?prioritas=`
-- [ ] `model.ValidDeadline` (format `YYYY-MM-DD`) masuk ke `Validasi()`
-- [ ] Frontend: input deadline, kolom deadline, dropdown prioritas, dropdown urutan
-- [ ] Test sorting, filter, deadline
+- [x] Implementasi di `InMemoryStore` dan `SQLiteStore`
+- [x] Whitelist `SortColumns` (anti SQL injection)
+- [x] Sorting `?sort_by=&order=asc|desc`
+- [x] Filter prioritas `?prioritas=`
+- [x] `model.ValidDeadline` (format `YYYY-MM-DD`) masuk ke `Validasi()`
+- [x] Frontend: input deadline, kolom deadline, dropdown prioritas, dropdown urutan
+- [x] Test sorting, filter, deadline
 
 ## Fase 3 — DATABASE (PostgreSQL)
 

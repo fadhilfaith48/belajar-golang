@@ -10,7 +10,9 @@ function App() {
   const [info, setInfo] = useState({ total: 0, total_pages: 1 })
   const [loading, setLoading] = useState(true)
   const [pesan, setPesan] = useState('')
-  const [form, setForm] = useState({ judul: '', kategori: '', prioritas: 'sedang' })
+  const [form, setForm] = useState({ judul: '', kategori: '', prioritas: 'sedang', deadline: '' })
+  const [prioritas, setPrioritas] = useState('')
+  const [sort, setSort] = useState('id_asc')
 
   const limit = 10
 
@@ -23,6 +25,12 @@ function App() {
       const params = new URLSearchParams()
       if (filter) params.set('status', filter)
       if (search.trim()) params.set('search', search.trim())
+      if (prioritas) params.set('prioritas', prioritas)
+      if (sort) {
+        const [sb, so] = sort.split('_')
+        if (sb) params.set('sort_by', sb)
+        if (so) params.set('order', so)
+      }
       params.set('page', page)
       params.set('limit', limit)
 
@@ -58,6 +66,8 @@ function App() {
     setSearch(nilai)
     setPage(1)
   }
+  const gantiPrioritas = (v) => { setPrioritas(v); setPage(1) }
+  const gantiSort = (v) => { setSort(v); setPage(1) }
 
   const tambahTask = async (e) => {
     e.preventDefault()
@@ -76,7 +86,7 @@ function App() {
         setPesan('Gagal menambah: ' + (await res.text()))
         return
       }
-      setForm({ judul: '', kategori: '', prioritas: 'sedang' })
+      setForm({ judul: '', kategori: '', prioritas: 'sedang', deadline: '' })
       ambilData()
     } catch (err) {
       setPesan('Error: ' + err.message)
@@ -127,6 +137,11 @@ function App() {
           <option value="sedang">Prioritas: Sedang</option>
           <option value="tinggi">Prioritas: Tinggi</option>
         </select>
+        <input
+          type="date"
+          value={form.deadline}
+          onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+        />
         <button type="submit">Tambah</button>
       </form>
 
@@ -159,6 +174,28 @@ function App() {
         <span>{info.total} tugas ditemukan</span>
       </div>
 
+      <div className="filter">
+        <span>Filter prioritas: </span>
+        {[
+          { kode: '', label: 'Semua' },
+          { kode: 'rendah', label: 'Rendah' },
+          { kode: 'sedang', label: 'Sedang' },
+          { kode: 'tinggi', label: 'Tinggi' },
+        ].map((p) => (
+          <button key={p.kode} className={prioritas === p.kode ? 'aktif' : ''} onClick={() => gantiPrioritas(p.kode)}>{p.label}</button>
+        ))}
+        <select value={sort} onChange={(e) => gantiSort(e.target.value)} style={{ marginLeft: 8 }}>
+          <option value="id_asc">ID A-Z</option>
+          <option value="id_desc">ID Z-A</option>
+          <option value="judul_asc">Judul A-Z</option>
+          <option value="judul_desc">Judul Z-A</option>
+          <option value="deadline_asc">Deadline Terdekat</option>
+          <option value="deadline_desc">Deadline Terjauh</option>
+          <option value="prioritas_desc">Prioritas Tinggi→Rendah</option>
+          <option value="prioritas_asc">Prioritas Rendah→Tinggi</option>
+        </select>
+      </div>
+
       {loading ? (
         <p>Memuat...</p>
       ) : (
@@ -170,13 +207,14 @@ function App() {
               <th>Kategori</th>
               <th>Prioritas</th>
               <th>Status</th>
+              <th>Deadline</th>
               <th>Aksi</th>
             </tr>
           </thead>
           <tbody>
             {tasks.length === 0 ? (
               <tr>
-                <td colSpan="6">Belum ada tugas.</td>
+                <td colSpan="7">Belum ada tugas.</td>
               </tr>
             ) : (
               tasks.map((t) => (
@@ -192,6 +230,7 @@ function App() {
                       <option value="done">Done</option>
                     </select>
                   </td>
+                  <td>{t.deadline || '-'}</td>
                   <td>
                     <button className="hapus" onClick={() => hapusTask(t.id)}>
                       Hapus

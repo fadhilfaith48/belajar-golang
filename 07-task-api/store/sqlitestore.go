@@ -3,6 +3,8 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"strings"
+	"fmt"
 
 	"task-api/model"
 
@@ -167,4 +169,78 @@ func scanTask(row *sql.Row) (model.Task, error) {
 // Penting dipanggil saat program selesai agar file tidak terkunci.
 func (s *SQLiteStore) Close() error {
 	return s.db.Close()
+}
+
+
+func (s *SQLiteStore) ListFiltered(opts ListOptions) ([]model.Task, int, error) {
+	// Bangun WHERE dinamis
+	where := []string{"1=1"}
+	args := []any{}
+	i := 1
+	if opts.Status != "" {
+		where = append(where, "status = ?")
+		args = append(args, opts.Status)
+		i++
+	}
+	if opts.Prioritas != "" {
+		where = append(where, "prioritas = ?")
+		args = append(args, opts.Prioritas)
+		i++
+	}
+	if opts.Kategori != "" {
+		where = append(where, "kategori = ?")
+		args = append(args, opts.Kategori)
+		i++
+	}
+	if opts.Search != "" {
+		where = append(where, "LOWER(judul) LIKE ?")
+		args = append(args, "%"+strings.ToLower(opts.Search)+"%")
+		i++
+	}
+	whereStr := strings.Join(where, " AND ")
+
+	// COUNT
+	var total int
+	rowCount := s.db.QueryRow("SELECT COUNT(*) FROM tasks WHERE "+whereStr, args...)
+	if err := rowCount.Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	// ORDER BY
+	order := "asc"
+	if opts.Order == "desc" {
+		order = "desc"
+	}
+	col := "id"
+	if c, ok := SortColumns[opts.SortBy]; ok && opts.SortBy != "" {
+		col = c
+	}
+	limit := opts.Limit
+	offset := opts.Offset
+	if limit < 0 {
+		limit = 0
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	query := "SELECT id, judul, kategori, prioritas, status, deadline FROM tasks WHERE " + whereStr + " ORDER BY " + col + " " + order
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
+	}
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	tasks := []model.Task{}
+	for rows.Next() {
+		var t model.Task
+		if err := rows.Scan(&t.ID, &t.Judul, &t.Kategori, &t.Prioritas, &t.Status, &t.Deadline); err != nil {
+			return nil, 0, err
+		}
+		tasks = append(tasks, t)
+	}
+	return tasks, total, nil
 }

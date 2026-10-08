@@ -112,43 +112,38 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	status := r.URL.Query().Get("status")
 	kategori := r.URL.Query().Get("kategori")
 	// Lowercase sekali di luar loop, bukan per item (lebih hemat)
-	search := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("search")))
-
-	hasil := make([]model.Task, 0)
-	for _, t := range h.store.List() {
-		if status != "" && t.Status != status {
-			continue
-		}
-		if kategori != "" && t.Kategori != kategori {
-			continue
-		}
-		if search != "" && !strings.Contains(strings.ToLower(t.Judul), search) {
-			continue
-		}
-		hasil = append(hasil, t)
+	search := strings.TrimSpace(r.URL.Query().Get("search"))
+	prioritas := r.URL.Query().Get("prioritas")
+	sortBy := r.URL.Query().Get("sort_by")
+	order := strings.ToLower(r.URL.Query().Get("order"))
+	if order != "desc" {
+		order = "asc"
 	}
 
-	// Pagination: total dihitung SEBELUM dipotong, jadi "total" selalu
-	// menunjukkan berapa banyak hasil filter (bukan hanya halaman ini).
-	total := len(hasil)
+	offset := (page - 1) * limit
+	opts := store.ListOptions{
+		Status:    status,
+		Kategori:  kategori,
+		Search:    search,
+		Prioritas: prioritas,
+		SortBy:    sortBy,
+		Order:     order,
+		Limit:     limit,
+		Offset:    offset,
+	}
+	hasil, total, err := h.store.ListFiltered(opts)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	totalPages := (total + limit - 1) / limit
 	if totalPages == 0 {
 		totalPages = 1
 	}
 
-	// Slicing di luar batas akan panic, jadi dijepit dulu. Halaman yang
-	// jauh melewati jumlah data menghasilkan daftar kosong, bukan error.
-	start := (page - 1) * limit
-	if start > total {
-		start = total
-	}
-	end := start + limit
-	if end > total {
-		end = total
-	}
-
 	writeJSON(w, http.StatusOK, TaskListResponse{
-		Data:       hasil[start:end],
+		Data:       hasil,
 		Total:      total,
 		Page:       page,
 		Limit:      limit,

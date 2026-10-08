@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"strings"
+	"time"
 )
 
 // Task: representasi data tugas dalam JSON
@@ -84,5 +85,20 @@ func Validasi(t *Task) error {
 	if !ValidPrioritas(t.Prioritas) {
 		return errors.New("prioritas tidak valid")
 	}
+	if !ValidDeadline(t.Deadline) {
+		return errors.New("deadline tidak valid")
+	}
 	return nil
+}
+
+
+// ValidDeadline memvalidasi format deadline.
+// - Kosong dibolehkan (deadline opsional).
+// - Jika diisi, harus dalam format YYYY-MM-DD (mis. 2026-10-08).
+func ValidDeadline(s string) bool {
+	if strings.TrimSpace(s) == "" {
+		return true
+	}
+	_, err := time.Parse("2006-01-02", s)
+	return err == nil
 }

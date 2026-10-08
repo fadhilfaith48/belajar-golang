@@ -122,3 +122,22 @@ func TestValidasiMengisiDefault(t *testing.T) {
 		t.Errorf("status = %q, ingin %q", task.Status, StatusTodo)
 	}
 }
+
+func TestValidDeadline(t *testing.T) {
+	// kosong boleh
+	if !ValidDeadline("") {
+		t.Error("deadline kosong seharusnya valid")
+	}
+	if !ValidDeadline("2026-10-08") {
+		t.Error("2026-10-08 seharusnya valid (YYYY-MM-DD)")
+	}
+	if ValidDeadline("08-10-2026") {
+		t.Error("08-10-2026 seharusnya tidak valid (format salah)")
+	}
+	if ValidDeadline("abc") {
+		t.Error("abc seharusnya tidak valid")
+	}
+	if ValidDeadline("2026-13-01") {
+		t.Error("bulan 13 seharusnya tidak valid")
+	}
+}
